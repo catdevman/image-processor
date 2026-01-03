@@ -81,16 +81,84 @@ resource "aws_iam_role_policy_attachment" "attach_policy" {
   policy_arn = aws_iam_policy.lambda_policy.arn
 }
 
+# --- 1. Web Lambda (The Monolith) ---
+
+resource "aws_lambda_function" "web" {
+  filename         = "web.zip" # Build cmd/web/main.go -> web.zip
+  function_name    = "GoMapWeb"
+  role             = aws_iam_role.lambda_exec.arn
+  handler          = "bootstrap"
+  runtime          = "provided.al2023"
+  architectures    = ["arm64"]
+  source_code_hash = filebase64sha256("web.zip")
+
+  environment {
+    variables = {
+      TABLE_NAME  = aws_dynamodb_table.metadata.name
+      BUCKET_NAME = aws_s3_bucket.uploads.id
+    }
+  }
+}
+
+# Web Lambda needs Scan (to show map) and S3 Put (to presign urls)
+resource "aws_iam_role_policy" "web_policy" {
+  role = aws_iam_role.lambda_exec.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action   = ["dynamodb:Scan", "s3:PutObject"]
+        Effect   = "Allow"
+        Resource = [aws_dynamodb_table.metadata.arn, "${aws_s3_bucket.uploads.arn}/*"]
+      }
+    ]
+  })
+}
+
+# --- 2. API Gateway (Single Entry Point) ---
+
+resource "aws_apigatewayv2_api" "http_api" {
+  name          = "go-map-app"
+  protocol_type = "HTTP"
+}
+
+resource "aws_apigatewayv2_stage" "default" {
+  api_id      = aws_apigatewayv2_api.http_api.id
+  name        = "$default"
+  auto_deploy = true
+}
+
+resource "aws_apigatewayv2_integration" "web_integration" {
+  api_id           = aws_apigatewayv2_api.http_api.id
+  integration_type = "AWS_PROXY"
+  integration_uri  = aws_lambda_function.web.invoke_arn
+}
+
+# Catch-all Route: Send everything to Go
+resource "aws_apigatewayv2_route" "any" {
+  api_id    = aws_apigatewayv2_api.http_api.id
+  route_key = "$default" 
+  target    = "integrations/${aws_apigatewayv2_integration.web_integration.id}"
+}
+
+resource "aws_lambda_permission" "api_gw_web" {
+  statement_id  = "AllowAPIGatewayInvokeWeb"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.web.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.http_api.execution_arn}/*/*"
+}
+
 # --- 3. Lambda Function ---
 
 resource "aws_lambda_function" "processor" {
-  filename         = "function.zip"
+  filename         = "processor.zip"
   function_name    = "ImageGeoProcessor"
   role             = aws_iam_role.lambda_exec.arn
   handler          = "bootstrap" # Must be 'bootstrap' for provided.al2023
   runtime          = "provided.al2023"
   architectures    = ["arm64"]
-  source_code_hash = filebase64sha256("function.zip")
+  source_code_hash = filebase64sha256("processor.zip")
 
   environment {
     variables = {
