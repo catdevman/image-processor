@@ -1,0 +1,5 @@
+.terraform
+.terraform.lock.hcl
+bootstrap
+processor.zip
+web.zip
