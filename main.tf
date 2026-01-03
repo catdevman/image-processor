@@ -5,6 +5,12 @@ terraform {
       version = "~> 5.0"
     }
   }
+  # Add this block
+  backend "s3" {
+    bucket = "catdevman-terraform-state" # REPLACE THIS
+    key    = "go-image-processing/terraform.tfstate"
+    region = "us-east-1"
+  }
 }
 
 provider "aws" {
