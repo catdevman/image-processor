@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Go Map</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        /* Fix map height */
+        #map { height: 600px; z-index: 0; }
+    </style>
+</head>
+<body class="bg-gray-100 h-screen flex flex-col font-sans">
+
+    <div class="bg-white p-4 shadow-md z-10" x-data="uploader()">
+        <div class="max-w-4xl mx-auto flex items-center justify-between">
+            <h1 class="text-xl font-bold text-gray-800">📍 GeoPhoto (Go+HTMX)</h1>
+            <div class="flex items-center gap-4">
+                <input type="file" x-ref="fileInput" class="hidden" @change="uploadFile">
+                <span x-text="status" class="text-sm text-gray-500"></span>
+
+                <button @click="$refs.fileInput.click()" 
+                        :disabled="uploading"
+                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow transition disabled:opacity-50">
+                    <span x-show="!uploading">Upload Photo</span>
+                    <span x-show="uploading">Uploading...</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex-1 relative">
+        <div id="map" class="w-full h-full"></div>
+        <div id="map-data-loader" 
+             hx-get="/points" 
+             hx-trigger="load, map-refresh from:body"
+             hx-swap="none">
+        </div>
+    </div>
+
+    <script>
+        // --- 1. Map Logic (Leaflet) ---
+        var map = L.map('map').setView([20, 0], 2);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Define icons
+        var defaultIcon = L.icon({
+            iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+            shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34]
+        });
+
+        // Listen for HTMX events to update map markers
+        document.body.addEventListener('htmx:afterOnLoad', function(evt) {
+            if (evt.detail.pathInfo.requestPath === '/points') {
+                const points = JSON.parse(evt.detail.xhr.responseText);
+                // Clear existing markers (optional, or just add new ones)
+                // map.eachLayer((layer) => { if (layer instanceof L.Marker) map.removeLayer(layer); });
+
+                points.forEach(p => {
+                    if(p.latitude && p.longitude) {
+                        L.marker([p.latitude, p.longitude], {icon: defaultIcon})
+                         .addTo(map)
+                         .bindPopup(`<b>ID:</b> ${p.imageId}`);
+                    }
+                });
+            }
+        });
+
+        // --- 2. Upload Logic (AlpineJS) ---
+        function uploader() {
+            return {
+                uploading: false,
+                status: '',
+                async uploadFile(e) {
+                    const file = e.target.files[0];
+                    if (!file) return;
+
+                    this.uploading = true;
+                    this.status = 'Getting secure link...';
+
+                    try {
+                        // A. Get Presigned URL from Go
+                        const res = await fetch('/upload-url', {
+                            method: 'POST',
+                            body: JSON.stringify({ filename: file.name })
+                        });
+                        const data = await res.json();
+
+                        // B. Upload direct to S3
+                        this.status = 'Uploading to S3...';
+                        await fetch(data.uploadUrl, {
+                            method: 'PUT',
+                            body: file,
+                            headers: { 'Content-Type': file.type }
+                        });
+
+                        this.status = 'Done! Processing...';
+                        // C. Trigger Map Refresh
+                        // We give the backend 2 seconds to process the EXIF
+                        setTimeout(() => {
+                            document.body.dispatchEvent(new Event('map-refresh'));
+                            this.status = '';
+                            this.uploading = false;
+                        }, 2500);
+
+                    } catch (err) {
+                        console.error(err);
+                        this.status = 'Error uploading.';
+                        this.uploading = false;
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>
