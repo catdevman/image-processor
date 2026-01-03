@@ -27,7 +27,7 @@ jobs:
     # --- 2. Build Binary ---
     - name: Build Lambda Binary
       run: |
-        GOOS=linux GOARCH=arm64 go build -o bootstrap ./cmd/lambda/main.go
+        GOOS=linux GOARCH=arm64 go build -o bootstrap ./cmd/processor/main.go
         zip processor.zip bootstrap
         GOOS=linux GOARCH=arm64 go build -o bootstrap ./cmd/web/main.go
         zip web.zip bootstrap
