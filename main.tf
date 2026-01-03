@@ -138,6 +138,8 @@ resource "aws_apigatewayv2_integration" "web_integration" {
   api_id           = aws_apigatewayv2_api.http_api.id
   integration_type = "AWS_PROXY"
   integration_uri  = aws_lambda_function.web.invoke_arn
+
+  payload_format_version = "2.0"
 }
 
 # Catch-all Route: Send everything to Go
@@ -195,6 +197,28 @@ resource "aws_s3_bucket_notification" "bucket_notification" {
   }
 
   depends_on = [aws_lambda_permission.allow_s3]
+}
+
+resource "aws_s3_bucket_cors_configuration" "uploads_cors" {
+  bucket = aws_s3_bucket.uploads.id
+
+  cors_rule {
+    # Allow the browser to send these headers (Content-Type is critical)
+    allowed_headers = ["*"]
+    
+    # Allow the specific methods your AlpineJS uses
+    allowed_methods = ["PUT", "POST"]
+    
+    # Allow requests from ANYWHERE (simplest for now)
+    # In production, change this to your API Gateway URL
+    allowed_origins = ["*"]
+    
+    # Allow the browser to read the ETag (useful for verify)
+    expose_headers  = ["ETag"]
+    
+    # Cache this response for 50 minutes so browsers don't spam OPTIONS requests
+    max_age_seconds = 3000
+  }
 }
 
 # --- Outputs ---
