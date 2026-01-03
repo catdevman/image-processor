@@ -17,7 +17,7 @@ provider "aws" {
   region = "us-east-1"
 }
 
-# --- 1. Storage (S3 & DynamoDB) ---
+# --- Storage (S3 & DynamoDB) ---
 
 resource "aws_s3_bucket" "uploads" {
   bucket_prefix = "image-uploads-"
@@ -35,7 +35,7 @@ resource "aws_dynamodb_table" "metadata" {
   }
 }
 
-# --- 2. IAM Roles & Permissions ---
+# --- IAM Roles & Permissions ---
 
 resource "aws_iam_role" "lambda_exec" {
   name = "image_processor_role"
@@ -87,7 +87,7 @@ resource "aws_iam_role_policy_attachment" "attach_policy" {
   policy_arn = aws_iam_policy.lambda_policy.arn
 }
 
-# --- 1. Web Lambda (The Monolith) ---
+# --- Web Lambda (The Monolith) ---
 
 resource "aws_lambda_function" "web" {
   filename         = "web.zip" # Build cmd/web/main.go -> web.zip
@@ -121,7 +121,7 @@ resource "aws_iam_role_policy" "web_policy" {
   })
 }
 
-# --- 2. API Gateway (Single Entry Point) ---
+# --- API Gateway (Single Entry Point) ---
 
 resource "aws_apigatewayv2_api" "http_api" {
   name          = "go-map-app"
@@ -157,7 +157,7 @@ resource "aws_lambda_permission" "api_gw_web" {
   source_arn    = "${aws_apigatewayv2_api.http_api.execution_arn}/*/*"
 }
 
-# --- 3. Lambda Function ---
+# --- Lambda Function ---
 
 resource "aws_lambda_function" "processor" {
   filename         = "processor.zip"
@@ -175,7 +175,7 @@ resource "aws_lambda_function" "processor" {
   }
 }
 
-# --- 4. Triggers & Wiring ---
+# --- Triggers & Wiring ---
 
 # Allow S3 to call the Lambda
 resource "aws_lambda_permission" "allow_s3" {
