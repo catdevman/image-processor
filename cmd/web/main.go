@@ -50,10 +50,6 @@ func handler(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.AP
 	method := req.RequestContext.HTTP.Method
 	path := req.RequestContext.HTTP.Path
 
-	headers := map[string]string{
-		"Content-Type": "application/json",
-	}
-
 	// 1. Serve HTML
 	if method == "GET" && (path == "/" || path == "") {
 		return events.APIGatewayProxyResponse{
