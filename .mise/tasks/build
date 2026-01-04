@@ -1,3 +1,5 @@
 #!/bin/bash
 #MISE description="Build all lambda binaries"
 #MISE depends=["build-web", "build-processor"]
+#MISE sources=["build-web", "build-processor"]
+wait
