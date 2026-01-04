@@ -1,6 +1,14 @@
 #!/bin/bash
 #MISE description="Build the processor lambda binary"
 echo "Building Processor..."
-GOOS=linux GOARCH=arm64 go build -o bootstrap cmd/processor/main.go
-zip processor.zip bootstrap
-rm -f bootstrap
+
+# Create a temporary directory for the build artifact
+WORK_DIR=$(mktemp -d)
+trap 'rm -rf "$WORK_DIR"' EXIT
+
+# Build the binary named 'bootstrap' into the temp dir
+GOOS=linux GOARCH=arm64 go build -o "$WORK_DIR/bootstrap" cmd/processor/main.go
+
+# Zip the bootstrap file into processor.zip in the current directory
+# -j (junk paths) ensures the file is stored as just "bootstrap" at the root of the zip
+zip -j processor.zip "$WORK_DIR/bootstrap"
