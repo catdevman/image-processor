@@ -1,0 +1,7 @@
+[env]
+AWS_REGION = "us-east-1"
+TABLE_NAME = "ImageLocations"
+BUCKET_NAME = "image-uploads-20260103170956533200000001"
+
+[tools]
+go = "1.25.5"

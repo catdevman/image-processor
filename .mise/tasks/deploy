@@ -1,0 +1,4 @@
+#!/bin/bash
+#MISE description="Deploy infrastructure with Terraform"
+#MISE depends=["build"]
+terraform apply

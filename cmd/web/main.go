@@ -5,7 +5,9 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"time"
 
@@ -108,5 +110,39 @@ func jsonResponse(status int, body interface{}) events.APIGatewayProxyResponse {
 }
 
 func main() {
-	lambda.Start(handler)
+	if os.Getenv("AWS_LAMBDA_FUNCTION_NAME") != "" {
+		lambda.Start(handler)
+	} else {
+		log.Println("Starting local server on :8080")
+		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			// Read body
+			bodyBytes, _ := io.ReadAll(r.Body)
+
+			// Construct Lambda Request
+			event := events.APIGatewayV2HTTPRequest{
+				Body: string(bodyBytes),
+				RequestContext: events.APIGatewayV2HTTPRequestContext{
+					HTTP: events.APIGatewayV2HTTPRequestContextHTTPDescription{
+						Method: r.Method,
+						Path:   r.URL.Path,
+					},
+				},
+			}
+
+			// Call existing handler
+			resp, err := handler(r.Context(), event)
+			if err != nil {
+				http.Error(w, err.Error(), 500)
+				return
+			}
+
+			// Write response
+			for k, v := range resp.Headers {
+				w.Header().Set(k, v)
+			}
+			w.WriteHeader(resp.StatusCode)
+			w.Write([]byte(resp.Body))
+		})
+		log.Fatal(http.ListenAndServe(":8080", nil))
+	}
 }

@@ -1,0 +1,6 @@
+#!/bin/bash
+#MISE description="Build the web lambda binary"
+echo "Building Web..."
+GOOS=linux GOARCH=arm64 go build -o bootstrap cmd/web/main.go
+zip web.zip bootstrap
+rm bootstrap

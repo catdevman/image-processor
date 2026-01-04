@@ -1,0 +1,3 @@
+#!/bin/bash
+#MISE description="Run the web server locally"
+go run cmd/web/main.go

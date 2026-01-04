@@ -1,0 +1,6 @@
+#!/bin/bash
+#MISE description="Build the processor lambda binary"
+echo "Building Processor..."
+GOOS=linux GOARCH=arm64 go build -o bootstrap cmd/processor/main.go
+zip processor.zip bootstrap
+rm bootstrap
