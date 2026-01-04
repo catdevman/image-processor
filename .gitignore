@@ -3,3 +3,6 @@
 bootstrap
 processor.zip
 web.zip
+
+.gemini/
+gha-creds-*.json
